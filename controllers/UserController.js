@@ -1,14 +1,17 @@
 const User = require("../models/User");
-var user = require("../models/User");
+var PasswordToken = require("../models/PasswordToken");
+const bcrypt = require("bcrypt");
+var jwt = require("jsonwebtoken");
 
+var secret = "hadlaldfhfhkankjuhfhfajdksjdljsdlaj";
 class UserController {
 
     async index(req, res) {
-
         var users = await User.findAll();
         res.json(users);
 
     }
+
     async findUser(req, res) {
         var id = req.params.id;
         var user = await User.findById(id);
@@ -81,6 +84,66 @@ class UserController {
 
 
     }
+
+    async recoveryPassword(req, res) {
+        var email = req.body.email;
+
+
+        var result = await PasswordToken.create(email);
+        if (result.status) {
+            console.log(result.token);
+            res.status(200)
+            res.send("" + result.token)
+        } else {
+            res.status(406)
+            res.send(result.err)
+        }
+
+
+    }
+
+    async changePassword(req, res) {
+        var token = req.body.token;
+        var password = req.body.password;
+
+        var isTokenValid = await PasswordToken.validate(token);
+        if (isTokenValid.status) {
+
+
+            await User.changePassword(password, isTokenValid.token.user_id, isTokenValid.token.token);
+            res.status(200);
+            res.send("Senha alterada");
+        } else {
+            console.log(isTokenValid.status)
+            res.status(406);
+            res.send("Token invalido!");
+        }
+
+    }
+
+    async login(req, res) {
+        var { email, password } = req.body;
+
+        var user = await User.findByEmail(email);
+        if (user != undefined) {
+
+            var result = await bcrypt.compare(password, user.password);
+            if (result) {
+                var token = jwt.sign({ email: user.email, role: user.role }, secret);
+                res.status(200);
+                res.json({ token: token });
+            } else {
+                res.status(406);
+                res.send("Senha Incorreta")
+            }
+            res.json({
+                status: result
+            })
+        } else {
+
+        }
+    }
 }
 
+module.exports = new UserController();
 module.exports = new UserController();
